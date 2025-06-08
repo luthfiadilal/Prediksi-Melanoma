@@ -195,7 +195,8 @@ export default function Home() {
     try {
       const prediction = await predictMelanomaUseCase(image);
       setResult(prediction);
-      setShowModal(true);
+      console.log("Hasil Prediksi:", prediction); // Tampilkan di console
+      setShowModal(true); // Jangan tampilkan modal dulu
     } catch (err) {
       console.error(err);
       alert("Terjadi kesalahan saat prediksi.");
@@ -242,18 +243,18 @@ export default function Home() {
   const canSwitchCamera = isMobile && cameraDevices.length > 1;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-6">
+    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-6 px-[100px]">
       {/* Left Section */}
       <div className="flex-1 text-center md:text-left mb-8 md:mb-0">
-        <img
+        {/* <img
           src="/example-ui.png"
           alt="Melanoma Example"
           className="w-64 mx-auto md:mx-0 rounded-lg shadow-md"
-        />
-        <h1 className="text-4xl font-extrabold mt-6 leading-tight text-gray-800">
+        /> */}
+        <h1 className="text-[48px] font-extrabold mt-6 leading-tight text-gray-800">
           Deteksi <span className="text-blue-600">Melanoma</span> Kulit
         </h1>
-        <p className="text-gray-600 mt-3 max-w-md">
+        <p className="text-gray-600 text-[22px] mt-3 max-w-md">
           Unggah gambar kulit Anda atau gunakan kamera untuk mendeteksi potensi
           melanoma secara instan.
         </p>
@@ -348,24 +349,54 @@ export default function Home() {
             disabled={isLoading || !image}
             className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition disabled:opacity-50`}
           >
-            {isLoading ? <Spinner /> : "Deteksi Sekarang"}
+            {isLoading ? (
+              <div className="flex justify-center items-center">
+                <Spinner className="w-5 h-5 animate-spin" />
+              </div>
+            ) : (
+              "Deteksi Sekarang"
+            )}
           </button>
         </form>
       </div>
 
       {/* Modal Result */}
       <Modal
-        isOpen={showModal}
+        show={showModal}
         onClose={() => setShowModal(false)}
         title="Hasil Prediksi Melanoma"
       >
         {result ? (
-          <div className="text-center space-y-3">
-            <p className="text-lg font-semibold">{result.prediction}</p>
-            <p className="text-gray-600">{result.details}</p>
+          <div className="flex flex-col items-center justify-center space-y-4 p-6">
+            <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-4xl font-bold shadow">
+              🧬
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Hasil Prediksi:
+              </h3>
+              <p
+                className={`text-2xl font-bold ${
+                  result.prediction === "Melanoma"
+                    ? "text-red-600"
+                    : "text-green-600"
+                }`}
+              >
+                {result.prediction}
+              </p>
+              <p className="text-sm text-gray-500">{result.details}</p>
+            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow"
+            >
+              Tutup
+            </button>
           </div>
         ) : (
-          <p>Data tidak tersedia.</p>
+          <div className="p-6 text-center text-gray-500">
+            Data tidak tersedia.
+          </div>
         )}
       </Modal>
     </div>
