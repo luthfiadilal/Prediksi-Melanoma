@@ -246,7 +246,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-100 to-gray-100 p-6 md:px-[100px]">
       {/* Left Section */}
-      <div className="flex-1 text-center md:text-left mb-8 md:mb-0">
+      <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
         {/* <img
           src="/example-ui.png"
           alt="Melanoma Example"
@@ -273,10 +273,10 @@ export default function Home() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-[480px] mx-auto rounded-md bg-gray-800 object-cover"
+                  className="w-full md:h-[480px] h-[400px] mx-auto rounded-md bg-gray-800 object-cover"
                 />
 
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center flex-wrap gap-4 space-x-4">
                   <button
                     type="button"
                     onClick={takePicture}
