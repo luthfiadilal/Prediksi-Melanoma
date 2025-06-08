@@ -13,13 +13,7 @@ export default function Home() {
   const videoRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState(null);
-  const [cameraDevices, setCameraDevices] = useState([]);
-  const [activeCamera, setActiveCamera] = useState(null);
   const [cameraLoading, setCameraLoading] = useState(false);
-
-  // Deteksi mobile atau desktop
-  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-  // Di console setelah kamera terbuka:
 
   // Handle file selection
   const handleFileChange = (e) => {
@@ -39,102 +33,37 @@ export default function Home() {
     }
   }, [stream]);
 
-  // Get available cameras
-  useEffect(() => {
-    const getCameras = async () => {
-      try {
-        // Minta izin dengan constraints sederhana
-        const tempStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        tempStream.getTracks().forEach((track) => track.stop()); // Stop segera setelah dapat izin
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(
-          (device) => device.kind === "videoinput"
-        );
-        setCameraDevices(videoDevices);
-
-        if (videoDevices.length > 0) {
-          setActiveCamera(videoDevices[0].deviceId);
-        }
-      } catch (err) {
-        console.error("Camera access error:", err);
-        alert(`Izin kamera diperlukan. Error: ${err.message}`);
-      }
-    };
-
-    getCameras();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
-
   // Start camera with selected device or default based on device type
-  const startCamera = async (deviceId = null) => {
+  const startCamera = async () => {
     setCameraLoading(true);
     try {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      // Coba 3 level fallback secara berurutan
-      const constraintsAttempts = [
-        // Attempt 1: Dengan deviceId jika ada
-        deviceId ? { video: { deviceId: { exact: deviceId } } } : null,
+      const constraints = {
+        video: {
+          facingMode: { exact: "environment" },
+        },
+      };
 
-        // Attempt 2: FacingMode environment (kamera belakang)
-        { video: { facingMode: { exact: "environment" } } },
+      const mediaStream = await navigator.mediaDevices.getUserMedia(
+        constraints
+      );
+      setStream(mediaStream);
 
-        // Attempt 3: Constraints paling dasar
-        { video: true },
-      ].filter(Boolean);
-
-      let lastError = null;
-
-      for (const constraints of constraintsAttempts) {
-        try {
-          console.log("Trying constraints:", constraints);
-          const mediaStream = await navigator.mediaDevices.getUserMedia(
-            constraints
-          );
-          setStream(mediaStream);
-
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            await new Promise((resolve) => {
-              videoRef.current.onloadedmetadata = resolve;
-            });
-            await videoRef.current.play();
-          }
-
-          setShowCamera(true);
-          return; // Berhasil, keluar dari fungsi
-        } catch (err) {
-          lastError = err;
-          console.warn(`Attempt failed:`, err);
-          // Lanjut ke attempt berikutnya
-        }
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        await new Promise((resolve) => {
+          videoRef.current.onloadedmetadata = resolve;
+        });
+        await videoRef.current.play();
       }
 
-      // Jika semua attempt gagal
-      throw lastError || new Error("All camera attempts failed");
+      setShowCamera(true);
     } catch (err) {
-      console.error("Final camera error:", err);
-
-      // Pesan error lebih spesifik
-      let errorMessage = "Gagal mengakses kamera";
-      if (err.name === "NotReadableError") {
-        errorMessage =
-          "Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang mungkin menggunakan kamera.";
-      } else if (err.name === "OverconstrainedError") {
-        errorMessage = "Mode kamera tidak didukung. Coba ganti kamera.";
-      }
-
-      alert(`${errorMessage}\nDetail: ${err.message}`);
+      console.error("Gagal membuka kamera belakang:", err);
+      alert("Kamera belakang tidak tersedia atau ditolak.\n" + err.message);
     } finally {
       setCameraLoading(false);
     }
@@ -147,18 +76,6 @@ export default function Home() {
       setStream(null);
     }
     setShowCamera(false);
-  };
-
-  // Switch between cameras (hanya aktif di mobile dan jika lebih dari 1 kamera)
-  const switchCamera = () => {
-    if (!isMobile) return; // nonaktifkan di desktop
-    if (cameraDevices.length < 2) return;
-
-    const currentIndex = cameraDevices.findIndex(
-      (device) => device.deviceId === activeCamera
-    );
-    const nextIndex = (currentIndex + 1) % cameraDevices.length;
-    startCamera(cameraDevices[nextIndex].deviceId);
   };
 
   // Take picture from camera
@@ -239,29 +156,21 @@ export default function Home() {
     startCamera();
   };
 
-  // Apakah tombol ganti kamera boleh muncul
-  const canSwitchCamera = isMobile && cameraDevices.length > 1;
-
   return (
-    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-6 px-[100px]">
+    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-100 to-grey-60 p-6 md:px-[100px]">
       {/* Left Section */}
       <div className="flex-1 text-center md:text-left mb-8 md:mb-0">
-        {/* <img
-          src="/example-ui.png"
-          alt="Melanoma Example"
-          className="w-64 mx-auto md:mx-0 rounded-lg shadow-md"
-        /> */}
-        <h1 className="text-[48px] font-extrabold mt-6 leading-tight text-gray-800">
+        <h1 className="md:text-[48px] text-[36px] font-extrabold mt-6 leading-tight text-gray-800">
           Deteksi <span className="text-blue-600">Melanoma</span> Kulit
         </h1>
-        <p className="text-gray-600 text-[22px] mt-3 max-w-md">
+        <p className="text-gray-600 md:text-[22px] text-[18px] mt-3 max-w-md">
           Unggah gambar kulit Anda atau gunakan kamera untuk mendeteksi potensi
           melanoma secara instan.
         </p>
       </div>
 
       {/* Right Section */}
-      <div className="flex-1 bg-white p-8 rounded-xl shadow-lg max-w-md w-full space-y-4">
+      <div className="flex-1 bg-white p-4 sm:p-6 md:p-8 rounded-xl shadow-lg w-full max-w-full sm:max-w-md space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="border-2 border-dashed border-gray-300 p-4 rounded-lg text-center">
             {/* Camera View */}
@@ -283,15 +192,7 @@ export default function Home() {
                   >
                     Ambil Foto
                   </button>
-                  {canSwitchCamera && (
-                    <button
-                      type="button"
-                      onClick={switchCamera}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                    >
-                      Ganti Kamera
-                    </button>
-                  )}
+
                   <button
                     type="button"
                     onClick={stopCamera}
@@ -367,7 +268,7 @@ export default function Home() {
         title="Hasil Prediksi Melanoma"
       >
         {result ? (
-          <div className="flex flex-col items-center justify-center space-y-4 p-6">
+          <div className="flex flex-col sm:flex-row justify-center sm:space-x-4 space-y-2 sm:space-y-0">
             <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-4xl font-bold shadow">
               🧬
             </div>
