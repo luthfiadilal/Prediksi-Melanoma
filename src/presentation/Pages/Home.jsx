@@ -19,6 +19,7 @@ export default function Home() {
 
   // Deteksi mobile atau desktop
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  // Di console setelah kamera terbuka:
 
   // Handle file selection
   const handleFileChange = (e) => {
@@ -30,12 +31,23 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    console.log("Stream changed:", stream);
+    if (stream && videoRef.current) {
+      console.log("Video tracks:", stream.getVideoTracks());
+      console.log("Stream active:", stream.active);
+    }
+  }, [stream]);
+
   // Get available cameras
   useEffect(() => {
     const getCameras = async () => {
       try {
-        // Minta izin kamera terlebih dahulu
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        // Minta izin dengan constraints sederhana
+        const tempStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        tempStream.getTracks().forEach((track) => track.stop()); // Stop segera setelah dapat izin
 
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(
@@ -47,8 +59,8 @@ export default function Home() {
           setActiveCamera(videoDevices[0].deviceId);
         }
       } catch (err) {
-        console.error("Error accessing cameras:", err);
-        alert(`Error: ${err.message}`);
+        console.error("Camera access error:", err);
+        alert(`Izin kamera diperlukan. Error: ${err.message}`);
       }
     };
 
@@ -65,57 +77,64 @@ export default function Home() {
   const startCamera = async (deviceId = null) => {
     setCameraLoading(true);
     try {
-      // Stop previous stream
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      const constraints = {
-        video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          width: { ideal: isMobile ? 640 : 1280 },
-          height: { ideal: isMobile ? 480 : 720 },
-          facingMode: isMobile ? "environment" : "user",
-        },
-      };
+      // Coba 3 level fallback secara berurutan
+      const constraintsAttempts = [
+        // Attempt 1: Dengan deviceId jika ada
+        deviceId ? { video: { deviceId: { exact: deviceId } } } : null,
 
-      console.log("Attempting to start camera with constraints:", constraints);
+        // Attempt 2: FacingMode environment (kamera belakang)
+        { video: { facingMode: { exact: "environment" } } },
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
-      console.log("Successfully got media stream");
+        // Attempt 3: Constraints paling dasar
+        { video: true },
+      ].filter(Boolean);
 
-      setStream(mediaStream);
+      let lastError = null;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current
-            .play()
-            .catch((err) => console.error("Error playing video:", err));
-        };
+      for (const constraints of constraintsAttempts) {
+        try {
+          console.log("Trying constraints:", constraints);
+          const mediaStream = await navigator.mediaDevices.getUserMedia(
+            constraints
+          );
+          setStream(mediaStream);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+            await new Promise((resolve) => {
+              videoRef.current.onloadedmetadata = resolve;
+            });
+            await videoRef.current.play();
+          }
+
+          setShowCamera(true);
+          return; // Berhasil, keluar dari fungsi
+        } catch (err) {
+          lastError = err;
+          console.warn(`Attempt failed:`, err);
+          // Lanjut ke attempt berikutnya
+        }
       }
 
-      setShowCamera(true);
-
-      // Update active camera
-      const tracks = mediaStream.getVideoTracks();
-      if (tracks.length > 0) {
-        const settings = tracks[0].getSettings();
-        console.log("Active camera settings:", settings);
-        setActiveCamera(settings.deviceId);
-      }
+      // Jika semua attempt gagal
+      throw lastError || new Error("All camera attempts failed");
     } catch (err) {
-      console.error("Failed to start camera:", err);
-      alert(`Gagal mengakses kamera: ${err.name}\n${err.message}`);
+      console.error("Final camera error:", err);
 
-      // Fallback untuk browser yang tidak support deviceId
-      if (err.name === "OverconstrainedError" && deviceId) {
-        console.log("Trying fallback without deviceId");
-        await startCamera(); // Coba lagi tanpa deviceId spesifik
-        return;
+      // Pesan error lebih spesifik
+      let errorMessage = "Gagal mengakses kamera";
+      if (err.name === "NotReadableError") {
+        errorMessage =
+          "Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang mungkin menggunakan kamera.";
+      } else if (err.name === "OverconstrainedError") {
+        errorMessage = "Mode kamera tidak didukung. Coba ganti kamera.";
       }
+
+      alert(`${errorMessage}\nDetail: ${err.message}`);
     } finally {
       setCameraLoading(false);
     }
@@ -185,6 +204,40 @@ export default function Home() {
     }
   };
 
+  const checkCameraAvailability = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+
+      if (videoDevices.length === 0) {
+        throw new Error("Tidak ada kamera yang terdeteksi");
+      }
+
+      // Coba akses kamera secara singkat
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      tempStream.getTracks().forEach((track) => track.stop());
+
+      return true;
+    } catch (err) {
+      console.error("Camera check failed:", err);
+      return false;
+    }
+  };
+
+  // Panggil sebelum memulai kamera
+  const handleStartCamera = async () => {
+    const isAvailable = await checkCameraAvailability();
+    if (!isAvailable) {
+      alert("Kamera tidak tersedia atau sedang digunakan aplikasi lain");
+      return;
+    }
+    startCamera();
+  };
+
   // Apakah tombol ganti kamera boleh muncul
   const canSwitchCamera = isMobile && cameraDevices.length > 1;
 
@@ -217,8 +270,10 @@ export default function Home() {
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-auto max-h-64 mx-auto rounded-md"
+                  muted
+                  className="w-full h-auto max-h-64 mx-auto rounded-md bg-gray-800 object-cover"
                 />
+
                 <div className="flex justify-center space-x-4">
                   <button
                     type="button"
@@ -264,7 +319,7 @@ export default function Home() {
                 {/* Camera Button */}
                 <button
                   type="button"
-                  onClick={() => startCamera()}
+                  onClick={handleStartCamera} // Ganti dari startCamera langsung
                   disabled={cameraLoading}
                   className={`text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 transition ${
                     cameraLoading ? "opacity-50 cursor-not-allowed" : ""
@@ -272,12 +327,6 @@ export default function Home() {
                 >
                   {cameraLoading ? "Membuka Kamera..." : "📷 Buka Kamera"}
                 </button>
-                {cameraDevices.length === 0 && (
-                  <p className="text-sm text-red-500 mt-2">
-                    Kamera tidak terdeteksi. Pastikan perangkat memiliki kamera
-                    dan izin diberikan.
-                  </p>
-                )}
               </>
             )}
 
