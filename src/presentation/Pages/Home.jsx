@@ -276,7 +276,7 @@ export default function Home() {
                   className="w-full md:h-[480px] h-[400px] mx-auto rounded-md bg-gray-800 object-cover"
                 />
 
-                <div className="flex justify-center flex-wrap items-center gap-4 space-x-4">
+                <div className="flex justify-center flex-wrap items-center gap-4">
                   <button
                     type="button"
                     onClick={takePicture}
