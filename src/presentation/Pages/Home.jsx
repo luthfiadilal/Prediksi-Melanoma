@@ -34,24 +34,26 @@ export default function Home() {
   useEffect(() => {
     const getCameras = async () => {
       try {
+        // Minta izin kamera terlebih dahulu
+        await navigator.mediaDevices.getUserMedia({ video: true });
+
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(
           (device) => device.kind === "videoinput"
         );
         setCameraDevices(videoDevices);
 
-        // Set default camera if available
         if (videoDevices.length > 0) {
           setActiveCamera(videoDevices[0].deviceId);
         }
       } catch (err) {
-        console.error("Error enumerating cameras:", err);
+        console.error("Error accessing cameras:", err);
+        alert(`Error: ${err.message}`);
       }
     };
 
     getCameras();
 
-    // Cleanup on unmount: stop stream
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
@@ -63,55 +65,57 @@ export default function Home() {
   const startCamera = async (deviceId = null) => {
     setCameraLoading(true);
     try {
+      // Stop previous stream
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      let constraints;
+      const constraints = {
+        video: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          width: { ideal: isMobile ? 640 : 1280 },
+          height: { ideal: isMobile ? 480 : 720 },
+          facingMode: isMobile ? "environment" : "user",
+        },
+      };
 
-      if (isMobile) {
-        // Mobile: pakai deviceId jika ada, kamera belakang, resolusi kecil
-        constraints = {
-          video: {
-            deviceId: deviceId ? { exact: deviceId } : undefined,
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: "environment",
-          },
-        };
-      } else {
-        // Desktop: kamera default tanpa deviceId, resolusi lebih besar
-        constraints = {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            // Tidak pakai deviceId supaya fallback default kamera
-          },
-        };
-      }
+      console.log("Attempting to start camera with constraints:", constraints);
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(
         constraints
       );
+      console.log("Successfully got media stream");
+
       setStream(mediaStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current
+            .play()
+            .catch((err) => console.error("Error playing video:", err));
+        };
       }
 
       setShowCamera(true);
 
-      if (deviceId) {
-        setActiveCamera(deviceId);
-      } else {
-        const tracks = mediaStream.getVideoTracks();
-        if (tracks.length > 0) {
-          setActiveCamera(tracks[0].getSettings().deviceId);
-        }
+      // Update active camera
+      const tracks = mediaStream.getVideoTracks();
+      if (tracks.length > 0) {
+        const settings = tracks[0].getSettings();
+        console.log("Active camera settings:", settings);
+        setActiveCamera(settings.deviceId);
       }
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      alert(`Tidak dapat mengakses kamera: ${err.message}`);
+      console.error("Failed to start camera:", err);
+      alert(`Gagal mengakses kamera: ${err.name}\n${err.message}`);
+
+      // Fallback untuk browser yang tidak support deviceId
+      if (err.name === "OverconstrainedError" && deviceId) {
+        console.log("Trying fallback without deviceId");
+        await startCamera(); // Coba lagi tanpa deviceId spesifik
+        return;
+      }
     } finally {
       setCameraLoading(false);
     }
@@ -261,16 +265,19 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => startCamera()}
-                  disabled={cameraDevices.length === 0 || cameraLoading}
+                  disabled={cameraLoading}
                   className={`text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 transition ${
-                    cameraDevices.length === 0 || cameraLoading
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
+                    cameraLoading ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 >
                   {cameraLoading ? "Membuka Kamera..." : "📷 Buka Kamera"}
-                  {cameraDevices.length === 0 && " (Tidak tersedia)"}
                 </button>
+                {cameraDevices.length === 0 && (
+                  <p className="text-sm text-red-500 mt-2">
+                    Kamera tidak terdeteksi. Pastikan perangkat memiliki kamera
+                    dan izin diberikan.
+                  </p>
+                )}
               </>
             )}
 
