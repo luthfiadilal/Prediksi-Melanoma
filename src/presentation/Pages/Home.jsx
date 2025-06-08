@@ -272,7 +272,7 @@ export default function Home() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-[480px] max-h-64 mx-auto rounded-md bg-gray-800 object-cover"
+                  className="w-full h-[880px] max-h-64 mx-auto rounded-md bg-gray-800 object-cover"
                 />
 
                 <div className="flex justify-center space-x-4">
