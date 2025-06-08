@@ -3,7 +3,7 @@ export async function predictMelanomaAPI(imageFile) {
   formData.append("file", imageFile);
 
   const response = await fetch(
-    "https://f721-2001-448a-3070-1533-f466-555f-1435-cba2.ngrok-free.app/predict",
+    "https://6c1c-2001-448a-3070-1533-9dd7-143c-73-c405.ngrok-free.app/predict",
     {
       method: "POST",
       body: formData,

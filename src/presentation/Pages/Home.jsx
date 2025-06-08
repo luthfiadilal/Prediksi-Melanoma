@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { predictMelanomaUseCase } from "../../application/predictMelanoma";
 import Modal from "../Components/Modal";
 import Spinner from "../Components/Spinner";
+import { Icon } from "@iconify/react";
 
 export default function Home() {
   const [image, setImage] = useState(null);
@@ -251,7 +252,7 @@ export default function Home() {
           alt="Melanoma Example"
           className="w-64 mx-auto md:mx-0 rounded-lg shadow-md"
         /> */}
-        <h1 className="md:text-[48px] text[36px] font-extrabold mt-6 leading-tight text-gray-800">
+        <h1 className="md:text-[48px] text-[32px] font-extrabold mt-6 leading-tight text-gray-800">
           Deteksi <span className="text-blue-600">Melanoma</span> Kulit
         </h1>
         <p className="text-gray-600 md:text-[22px] mt-3 max-w-md">
@@ -272,32 +273,43 @@ export default function Home() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-[880px] max-h-64 mx-auto rounded-md bg-gray-800 object-cover"
+                  className="w-full h-[480px] mx-auto rounded-md bg-gray-800 object-cover"
                 />
 
                 <div className="flex justify-center space-x-4">
                   <button
                     type="button"
                     onClick={takePicture}
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                    className="bg-white cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-opacity-50 flex items-center space-x-2"
                   >
-                    Ambil Foto
+                    <Icon icon="solar:camera-bold" width="20" height="20" />
+                    <span>Ambil Foto</span>
                   </button>
                   {canSwitchCamera && (
                     <button
                       type="button"
                       onClick={switchCamera}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                      className="bg-white cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 flex items-center space-x-2"
                     >
-                      Ganti Kamera
+                      <Icon
+                        icon="solar:refresh-circle-bold"
+                        width="20"
+                        height="20"
+                      />
+                      <span>Ganti Kamera</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={stopCamera}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                    className="bg-white cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-200 focus:ring-opacity-50 flex items-center space-x-2"
                   >
-                    Batal
+                    <Icon
+                      icon="solar:close-circle-bold"
+                      width="20"
+                      height="20"
+                    />
+                    <span>Batal</span>
                   </button>
                 </div>
               </div>
