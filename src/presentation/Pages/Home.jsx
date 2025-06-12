@@ -16,6 +16,13 @@ export default function Home() {
   const [stream, setStream] = useState(null);
   const [cameraLoading, setCameraLoading] = useState(false);
 
+  // Di dalam startCamera(), sebelum getUserMedia
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    console.log("Perangkat mobile terdeteksi, cek kamera belakang");
+    // Tambahkan logika khusus untuk mobile di sini
+  }
   // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -41,49 +48,65 @@ export default function Home() {
   const startCamera = async () => {
     setCameraLoading(true);
     try {
-      // Stop previous stream if exists
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      // Debugging: Log sebelum meminta kamera
       console.log("Mencoba mengakses kamera dengan mode environment");
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+      // Coba pertama dengan environment
+      let mediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      } catch (err) {
+        console.warn("Gagal dengan environment, coba dengan user", err);
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      }
 
-      // Debugging: Dapatkan informasi track kamera
       const videoTrack = mediaStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
 
-      console.log("Informasi Kamera:");
-      console.log("- Device ID:", videoTrack.getSettings().deviceId);
-      console.log("- facingMode:", settings.facingMode);
+      console.log("Informasi Kamera Aktual:");
+      console.log("- facingMode:", settings.facingMode || "tidak terdeteksi");
       console.log("- Label:", videoTrack.label);
-      console.log("- Resolution:", settings.width + "x" + settings.height);
+      console.log("- Resolusi:", settings.width + "x" + settings.height);
 
       setStream(mediaStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+
+        setTimeout(() => {
+          if (videoRef.current && !videoRef.current.videoWidth) {
+            console.warn("Video masih blank, coba restart stream");
+            stopCamera();
+            startCamera(); // Coba ulangi
+          }
+        }, 2000);
         videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded, mencoba memutar...");
-          videoRef.current
-            .play()
-            .then(() => console.log("Video berhasil diputar"))
-            .catch((err) => console.error("Gagal memutar video:", err));
+          videoRef.current.play().catch((err) => {
+            console.error("Gagal memutar video:", err);
+            alert("Gagal memulai kamera: " + err.message);
+          });
         };
       }
 
       setShowCamera(true);
     } catch (err) {
-      console.error("Camera error:", err);
-      alert(`Gagal mengakses kamera: ${err.message}`);
+      console.error("Error kamera:", err);
+      alert("Tidak dapat mengakses kamera: " + err.message);
     } finally {
       setCameraLoading(false);
     }
