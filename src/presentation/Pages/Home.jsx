@@ -26,62 +26,153 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    console.log("Stream changed:", stream);
-    if (stream && videoRef.current) {
-      console.log("Video tracks:", stream.getVideoTracks());
-      console.log("Stream active:", stream.active);
-    }
-  }, [stream]);
-
   // Cleanup stream on unmount
   useEffect(() => {
     return () => {
       if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
       }
     };
   }, [stream]);
 
-  // Start camera with back camera
+  // Fungsi untuk mendapatkan kamera belakang
+  const getBackCameraConstraints = async () => {
+    try {
+      // Enumerate devices untuk mencari kamera belakang
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+
+      console.log("Available cameras:", videoDevices);
+
+      // Cari kamera belakang berdasarkan label
+      const backCamera = videoDevices.find(
+        (device) =>
+          device.label.toLowerCase().includes("back") ||
+          device.label.toLowerCase().includes("rear") ||
+          device.label.toLowerCase().includes("environment")
+      );
+
+      if (backCamera) {
+        console.log("Found back camera:", backCamera);
+        return {
+          video: {
+            deviceId: { exact: backCamera.deviceId },
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+          },
+        };
+      }
+
+      // Fallback ke facingMode environment
+      return {
+        video: {
+          facingMode: { exact: "environment" },
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+        },
+      };
+    } catch (error) {
+      console.error("Error enumerating devices:", error);
+      // Ultimate fallback
+      return {
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+    }
+  };
+
+  // Start camera dengan prioritas kamera belakang
   const startCamera = async () => {
     setCameraLoading(true);
     try {
+      // Stop previous stream if exists
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      // Always use back camera (environment)
-      const constraints = { video: { facingMode: { exact: "environment" } } };
-
-      // Fallback to any camera if back camera not available
       let mediaStream;
+
+      // Coba dengan kamera belakang terlebih dahulu
       try {
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const backCameraConstraints = await getBackCameraConstraints();
+        console.log("Trying back camera constraints:", backCameraConstraints);
+        mediaStream = await navigator.mediaDevices.getUserMedia(
+          backCameraConstraints
+        );
       } catch (err) {
-        if (err.name === "NotFoundError") {
-          throw new Error("Back camera not available");
+        console.log("Back camera failed, trying with ideal facingMode:", err);
+
+        // Fallback ke facingMode ideal (bukan exact)
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          });
+        } catch (err2) {
+          console.log(
+            "Environment facingMode failed, trying basic video:",
+            err2
+          );
+
+          // Ultimate fallback - any camera
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
         }
-        console.log("Back camera not available, using any camera");
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
       }
+
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+
+      console.log("Final camera settings:", settings);
+      console.log("Facing mode:", settings.facingMode);
+      console.log("Device ID:", settings.deviceId);
 
       setStream(mediaStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = resolve;
-        });
-        await videoRef.current.play();
+
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          videoRef.current
+            .play()
+            .then(() => {
+              console.log("Video playing successfully");
+              console.log("Video dimensions:", {
+                width: videoRef.current.videoWidth,
+                height: videoRef.current.videoHeight,
+              });
+            })
+            .catch((err) => {
+              console.error("Video play failed:", err);
+            });
+        };
+
+        // Fallback play setelah delay
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            videoRef.current.play().catch((err) => {
+              console.error("Fallback play failed:", err);
+            });
+          }
+        }, 1000);
       }
 
       setShowCamera(true);
     } catch (err) {
       console.error("Camera error:", err);
-      alert("Gagal mengakses kamera. Detail: " + err.message);
+      alert(`Gagal mengakses kamera: ${err.message}`);
     } finally {
       setCameraLoading(false);
     }
@@ -98,7 +189,7 @@ export default function Home() {
 
   // Take picture from camera
   const takePicture = () => {
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.videoWidth > 0) {
       const canvas = document.createElement("canvas");
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
@@ -116,6 +207,8 @@ export default function Home() {
         "image/jpeg",
         0.95
       );
+    } else {
+      alert("Kamera belum siap, tunggu sebentar dan coba lagi");
     }
   };
 
@@ -147,11 +240,13 @@ export default function Home() {
         (device) => device.kind === "videoinput"
       );
 
+      console.log("Available video devices:", videoDevices);
+
       if (videoDevices.length === 0) {
         throw new Error("Tidak ada kamera yang terdeteksi");
       }
 
-      // Coba akses kamera secara singkat
+      // Test camera access
       const tempStream = await navigator.mediaDevices.getUserMedia({
         video: true,
       });
@@ -164,14 +259,14 @@ export default function Home() {
     }
   };
 
-  // Panggil sebelum memulai kamera
+  // Handle start camera dengan pengecekan
   const handleStartCamera = async () => {
     const isAvailable = await checkCameraAvailability();
     if (!isAvailable) {
       alert("Kamera tidak tersedia atau sedang digunakan aplikasi lain");
       return;
     }
-    startCamera();
+    await startCamera();
   };
 
   return (
