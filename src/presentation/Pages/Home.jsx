@@ -72,10 +72,10 @@ export default function Home() {
       console.log("Perangkat Kamera Tersedia:", videoDevices);
 
       // 2. Cari kamera belakang (prioritaskan environment)
-      let constraints = {
+      const constraints = {
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: isMobile ? 640 : 1280 },
+          height: { ideal: isMobile ? 480 : 720 },
           facingMode: { ideal: "environment" },
         },
       };
