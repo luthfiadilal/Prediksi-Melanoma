@@ -23,6 +23,15 @@ export default function Home() {
     console.log("Perangkat mobile terdeteksi, cek kamera belakang");
     // Tambahkan logika khusus untuk mobile di sini
   }
+
+  // Tambahkan di awal komponen
+  useEffect(() => {
+    console.log("Device Info:", {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+    });
+  }, []);
   // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -36,10 +45,9 @@ export default function Home() {
   // Cleanup stream on unmount
   useEffect(() => {
     return () => {
+      // Cleanup kamera saat komponen unmount
       if (stream) {
-        stream.getTracks().forEach((track) => {
-          track.stop();
-        });
+        stream.getTracks().forEach((track) => track.stop());
       }
     };
   }, [stream]);
@@ -48,65 +56,117 @@ export default function Home() {
   const startCamera = async () => {
     setCameraLoading(true);
     try {
+      // Hentikan stream sebelumnya jika ada
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
 
-      console.log("Mencoba mengakses kamera dengan mode environment");
+      console.log("Mencoba mengakses kamera...");
 
-      // Coba pertama dengan environment
-      let mediaStream;
+      // 1. Coba dapatkan daftar perangkat kamera terlebih dahulu
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+
+      console.log("Perangkat Kamera Tersedia:", videoDevices);
+
+      // 2. Cari kamera belakang (prioritaskan environment)
+      let constraints = {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: { ideal: "environment" },
+        },
+      };
+
+      // 3. Jika di mobile, coba gunakan deviceId kamera belakang jika ada
+      if (isMobile && videoDevices.length > 1) {
+        const backCamera = videoDevices.find(
+          (device) =>
+            device.label.toLowerCase().includes("back") ||
+            device.label.toLowerCase().includes("rear")
+        );
+
+        if (backCamera) {
+          constraints.video = {
+            ...constraints.video,
+            deviceId: { exact: backCamera.deviceId },
+          };
+          console.log(
+            "Menggunakan kamera belakang dengan deviceId:",
+            backCamera.deviceId
+          );
+        }
+      }
+
+      // 4. Dapatkan media stream
+      const mediaStream = await navigator.mediaDevices.getUserMedia(
+        constraints
+      );
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+
+      console.log("Kamera Berhasil Diakses:", {
+        facingMode: settings.facingMode || "tidak terdeteksi",
+        label: videoTrack.label,
+        resolution: `${settings.width}x${settings.height}`,
+      });
+
+      setStream(mediaStream);
+
+      // 5. Handle video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+
+        // Tambahkan event listener untuk error
+        videoRef.current.onerror = (e) => {
+          console.error("Error pada video element:", e);
+        };
+
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          videoRef.current
+            .play()
+            .then(() => console.log("Video berhasil diputar"))
+            .catch((e) => console.error("Gagal memutar video:", e));
+        };
+
+        // Fallback untuk Android
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            videoRef.current.play().catch((e) => {
+              console.error("Fallback play error:", e);
+            });
+          }
+        }, 1000);
+      }
+
+      setShowCamera(true);
+    } catch (error) {
+      console.error("Error mengakses kamera:", error);
+
+      // Fallback ke kamera depan jika gagal
       try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-      } catch (err) {
-        console.warn("Gagal dengan environment, coba dengan user", err);
-        mediaStream = await navigator.mediaDevices.getUserMedia({
+        console.log("Coba fallback ke kamera depan...");
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
         });
+
+        setStream(fallbackStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = fallbackStream;
+          videoRef.current.onloadedmetadata = () => videoRef.current.play();
+        }
+        setShowCamera(true);
+      } catch (fallbackError) {
+        console.error("Fallback juga gagal:", fallbackError);
+        alert("Tidak dapat mengakses kamera: " + fallbackError.message);
       }
-
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      const settings = videoTrack.getSettings();
-
-      console.log("Informasi Kamera Aktual:");
-      console.log("- facingMode:", settings.facingMode || "tidak terdeteksi");
-      console.log("- Label:", videoTrack.label);
-      console.log("- Resolusi:", settings.width + "x" + settings.height);
-
-      setStream(mediaStream);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-
-        setTimeout(() => {
-          if (videoRef.current && !videoRef.current.videoWidth) {
-            console.warn("Video masih blank, coba restart stream");
-            stopCamera();
-            startCamera(); // Coba ulangi
-          }
-        }, 2000);
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().catch((err) => {
-            console.error("Gagal memutar video:", err);
-            alert("Gagal memulai kamera: " + err.message);
-          });
-        };
-      }
-
-      setShowCamera(true);
-    } catch (err) {
-      console.error("Error kamera:", err);
-      alert("Tidak dapat mengakses kamera: " + err.message);
     } finally {
       setCameraLoading(false);
     }
