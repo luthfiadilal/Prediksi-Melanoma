@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
+import Webcam from "react-webcam";
 import { predictMelanomaUseCase } from "../../application/predictMelanoma";
 import Modal from "../Components/Modal";
 import Spinner from "../Components/Spinner";
@@ -10,29 +11,32 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
-  const [stream, setStream] = useState(null);
-  const [cameraLoading, setCameraLoading] = useState(false);
 
-  // Di dalam startCamera(), sebelum getUserMedia
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const fileInputRef = useRef(null);
+  const webcamRef = useRef(null);
 
-  if (isMobile) {
-    console.log("Perangkat mobile terdeteksi, cek kamera belakang");
-    // Tambahkan logika khusus untuk mobile di sini
-  }
+  const videoConstraints = {
+    facingMode: { ideal: "environment" },
+    width: 640,
+    height: 480,
+  };
 
-  // Tambahkan di awal komponen
-  useEffect(() => {
-    console.log("Device Info:", {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
-    });
-  }, []);
-  // Handle file selection
+  const takePicture = () => {
+    if (webcamRef.current) {
+      const screenshot = webcamRef.current.getScreenshot();
+      fetch(screenshot)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+          setImage(file);
+          setPreview(URL.createObjectURL(blob));
+          setResult(null);
+          setShowCamera(false);
+        });
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -42,171 +46,6 @@ export default function Home() {
     }
   };
 
-  // Cleanup stream on unmount
-  useEffect(() => {
-    return () => {
-      // Cleanup kamera saat komponen unmount
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [stream]);
-
-  // Start camera langsung dengan environment
-  const startCamera = async () => {
-    setCameraLoading(true);
-    try {
-      // Hentikan stream sebelumnya jika ada
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-
-      console.log("Mencoba mengakses kamera...");
-
-      // 1. Coba dapatkan daftar perangkat kamera terlebih dahulu
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(
-        (device) => device.kind === "videoinput"
-      );
-
-      console.log("Perangkat Kamera Tersedia:", videoDevices);
-
-      // 2. Cari kamera belakang (prioritaskan environment)
-      const constraints = {
-        video: {
-          width: { ideal: isMobile ? 640 : 1280 },
-          height: { ideal: isMobile ? 480 : 720 },
-          facingMode: { ideal: "environment" },
-        },
-      };
-
-      // 3. Jika di mobile, coba gunakan deviceId kamera belakang jika ada
-      if (isMobile && videoDevices.length > 1) {
-        const backCamera = videoDevices.find(
-          (device) =>
-            device.label.toLowerCase().includes("back") ||
-            device.label.toLowerCase().includes("rear")
-        );
-
-        if (backCamera) {
-          constraints.video = {
-            ...constraints.video,
-            deviceId: { exact: backCamera.deviceId },
-          };
-          console.log(
-            "Menggunakan kamera belakang dengan deviceId:",
-            backCamera.deviceId
-          );
-        }
-      }
-
-      // 4. Dapatkan media stream
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      const settings = videoTrack.getSettings();
-
-      console.log("Kamera Berhasil Diakses:", {
-        facingMode: settings.facingMode || "tidak terdeteksi",
-        label: videoTrack.label,
-        resolution: `${settings.width}x${settings.height}`,
-      });
-
-      setStream(mediaStream);
-
-      // 5. Handle video element
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-
-        // Tambahkan event listener untuk error
-        videoRef.current.onerror = (e) => {
-          console.error("Error pada video element:", e);
-        };
-
-        videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
-          videoRef.current
-            .play()
-            .then(() => console.log("Video berhasil diputar"))
-            .catch((e) => console.error("Gagal memutar video:", e));
-        };
-
-        // Fallback untuk Android
-        setTimeout(() => {
-          if (videoRef.current && videoRef.current.readyState >= 2) {
-            videoRef.current.play().catch((e) => {
-              console.error("Fallback play error:", e);
-            });
-          }
-        }, 1000);
-      }
-
-      setShowCamera(true);
-    } catch (error) {
-      console.error("Error mengakses kamera:", error);
-
-      // Fallback ke kamera depan jika gagal
-      try {
-        console.log("Coba fallback ke kamera depan...");
-        const fallbackStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-
-        setStream(fallbackStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = fallbackStream;
-          videoRef.current.onloadedmetadata = () => videoRef.current.play();
-        }
-        setShowCamera(true);
-      } catch (fallbackError) {
-        console.error("Fallback juga gagal:", fallbackError);
-        alert("Tidak dapat mengakses kamera: " + fallbackError.message);
-      }
-    } finally {
-      setCameraLoading(false);
-    }
-  };
-
-  // Stop camera
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    setShowCamera(false);
-  };
-
-  // Take picture from camera
-  const takePicture = () => {
-    if (videoRef.current && videoRef.current.videoWidth > 0) {
-      const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(
-        (blob) => {
-          const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
-          setImage(file);
-          setPreview(URL.createObjectURL(blob));
-          setResult(null);
-          stopCamera();
-        },
-        "image/jpeg",
-        0.95
-      );
-    } else {
-      alert("Kamera belum siap, tunggu sebentar dan coba lagi");
-    }
-  };
-
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!image) return;
@@ -217,7 +56,6 @@ export default function Home() {
     try {
       const prediction = await predictMelanomaUseCase(image);
       setResult(prediction);
-      console.log("Hasil Prediksi:", prediction);
       setShowModal(true);
     } catch (err) {
       console.error(err);
@@ -227,15 +65,15 @@ export default function Home() {
     }
   };
 
-  // Handle start camera dengan pengecekan
-  const handleStartCamera = async () => {
-    await startCamera();
-  };
-
   return (
     <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-100 to-gray-100 p-6 md:px-[100px]">
       {/* Left Section */}
       <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
+        {/* <img
+          src="/example-ui.png"
+          alt="Melanoma Example"
+          className="w-64 mx-auto md:mx-0 rounded-lg shadow-md"
+        /> */}
         <h1 className="md:text-[48px] text-[32px] font-extrabold mt-6 leading-tight text-gray-800">
           Deteksi <span className="text-blue-600">Melanoma</span> Kulit
         </h1>
@@ -252,12 +90,12 @@ export default function Home() {
             {/* Camera View */}
             {showCamera ? (
               <div className="space-y-4">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full md:h-[480px] h-[400px] mx-auto rounded-md bg-gray-800 object-cover"
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={videoConstraints}
+                  className="w-full h-[400px] rounded-md bg-gray-800 object-cover"
                 />
 
                 <div className="flex justify-center flex-wrap items-center gap-4">
@@ -269,10 +107,11 @@ export default function Home() {
                     <Icon icon="solar:camera-bold" width="20" height="20" />
                     <span>Ambil Foto</span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={stopCamera}
-                    className="bg-white cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-rose-200 focus:ring-opacity-50 flex items-center space-x-2"
+                    onClick={() => setShowCamera(false)}
+                    className="bg-white cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center space-x-2"
                   >
                     <Icon
                       icon="solar:close-circle-bold"
@@ -299,16 +138,12 @@ export default function Home() {
                   </div>
                 </label>
 
-                {/* Camera Button */}
                 <button
                   type="button"
-                  onClick={handleStartCamera}
-                  disabled={cameraLoading}
-                  className={`text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 transition ${
-                    cameraLoading ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                  onClick={() => setShowCamera(true)}
+                  className="text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 transition"
                 >
-                  {cameraLoading ? "Membuka Kamera..." : "📷 Buka Kamera"}
+                  📷 Buka Kamera
                 </button>
               </>
             )}
