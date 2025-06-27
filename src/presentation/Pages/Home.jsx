@@ -201,7 +201,16 @@ export default function Home() {
               >
                 {result.prediction}
               </p>
-              <p className="text-sm text-gray-500">{result.details}</p>
+              <p className="text-xl font-semibold text-gray-800">
+                Probabilitas:
+              </p>
+              <ul>
+                {Object.entries(result.probabilities).map(([key, value]) => (
+                  <li key={key} className="text-gray-600 text-lg font-medium">
+                    {key}: {value.toFixed(2)}%
+                  </li>
+                ))}
+              </ul>
             </div>
             <button
               onClick={() => setShowModal(false)}

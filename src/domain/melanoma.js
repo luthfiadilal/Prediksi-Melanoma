@@ -1,5 +1,6 @@
 export class MelanomaPrediction {
-  constructor(prediction) {
+  constructor(prediction, probabilities) {
     this.prediction = prediction;
+    this.probabilities = probabilities;
   }
 }
