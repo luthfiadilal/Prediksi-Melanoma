@@ -4,6 +4,7 @@ import { predictMelanomaUseCase } from "../../application/predictMelanoma";
 import Modal from "../Components/Modal";
 import Spinner from "../Components/Spinner";
 import { Icon } from "@iconify/react";
+import { Link } from "react-router-dom";
 
 export default function Home() {
   const [image, setImage] = useState(null);
@@ -66,7 +67,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-blue-100 to-gray-100 p-6 md:px-[100px]">
+    <div className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-pink-50 to-gray-100 p-6 md:px-[100px]">
       {/* Left Section */}
       <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
         {/* <img
@@ -75,12 +76,20 @@ export default function Home() {
           className="w-64 mx-auto md:mx-0 rounded-lg shadow-md"
         /> */}
         <h1 className="md:text-[48px] text-[32px] font-extrabold mt-6 leading-tight text-gray-800">
-          Deteksi <span className="text-blue-600">Melanoma</span> Kulit
+          Deteksi <span className="text-pink-500">Melanoma</span> Kulit
         </h1>
         <p className="text-gray-600 md:text-[22px] mt-3 max-w-md">
           Unggah gambar kulit Anda atau gunakan kamera untuk mendeteksi potensi
           melanoma secara instan.
         </p>
+
+        {/* Tambahan button ke About */}
+        <Link
+          to="/about"
+          className="inline-block mt-6 px-6 py-3 bg-pink-500 hover:bg-pink-700 text-white font-semibold rounded-lg shadow-md transition"
+        >
+          Tentang Melanoma
+        </Link>
       </div>
 
       {/* Right Section */}
@@ -133,17 +142,19 @@ export default function Home() {
                     className="hidden"
                     ref={fileInputRef}
                   />
-                  <div className="text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 inline-block transition">
-                    📁 Pilih dari Galeri
+                  <div className="flex items-center justify-center gap-2 text-pink-700 font-medium bg-pink-100 hover:bg-pink-200 rounded px-4 py-2 transition shadow-sm">
+                    <Icon icon="solar:album-outline" width="24" height="24" />
+                    <span>Pilih dari Galeri</span>
                   </div>
                 </label>
 
                 <button
                   type="button"
                   onClick={() => setShowCamera(true)}
-                  className="text-blue-700 font-medium bg-blue-100 hover:bg-blue-200 rounded px-4 py-2 transition"
+                  className="flex w-full items-center justify-center gap-2 text-pink-700 font-medium bg-pink-100 hover:bg-pink-200 rounded px-4 py-2 transition shadow-sm"
                 >
-                  📷 Buka Kamera
+                  <Icon icon="solar:camera-bold" width="22" height="22" />
+                  <span>Buka Kamera</span>
                 </button>
               </>
             )}
@@ -164,7 +175,7 @@ export default function Home() {
           <button
             type="submit"
             disabled={isLoading || !image}
-            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition disabled:opacity-50`}
+            className={`w-full bg-pink-500 hover:bg-pink-700 text-white font-semibold py-3 rounded transition disabled:opacity-50`}
           >
             {isLoading ? (
               <div className="flex justify-center items-center">
@@ -184,10 +195,21 @@ export default function Home() {
         title="Hasil Prediksi Melanoma"
       >
         {result ? (
-          <div className="flex flex-col items-center justify-center space-y-4 p-6">
-            <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-4xl font-bold shadow">
-              🧬
+          <div className="flex flex-col items-center justify-center space-y-6 p-6">
+            {/* Preview gambar yang diproses */}
+            {preview && (
+              <img
+                src={preview}
+                alt="Gambar yang diproses"
+                className="max-h-60 rounded-lg shadow-md border"
+              />
+            )}
+
+            {/* Icon dan hasil */}
+            <div className="w-20 h-20 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shadow">
+              <Icon icon="mdi:dna" width="40" height="40" />
             </div>
+
             <div className="text-center space-y-2">
               <h3 className="text-xl font-semibold text-gray-800">
                 Hasil Prediksi:
@@ -201,6 +223,7 @@ export default function Home() {
               >
                 {result.prediction}
               </p>
+
               <p className="text-xl font-semibold text-gray-800">
                 Probabilitas:
               </p>
@@ -212,9 +235,10 @@ export default function Home() {
                 ))}
               </ul>
             </div>
+
             <button
               onClick={() => setShowModal(false)}
-              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow"
+              className="mt-4 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md shadow"
             >
               Tutup
             </button>
