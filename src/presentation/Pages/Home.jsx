@@ -195,23 +195,27 @@ export default function Home() {
         title="Hasil Prediksi Melanoma"
       >
         {result ? (
-          <div className="flex flex-col items-center justify-center space-y-6 p-6">
-            {/* Preview gambar yang diproses */}
+          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+            {/* Kolom kiri (gambar) */}
             {preview && (
-              <img
-                src={preview}
-                alt="Gambar yang diproses"
-                className="max-h-60 rounded-lg shadow-md border"
-              />
+              <div className="w-full md:w-1/2 flex justify-center">
+                <img
+                  src={preview}
+                  alt="Gambar yang diproses"
+                  className="max-h-60 w-auto md:max-h-[400px] rounded-lg shadow-md border object-contain"
+                />
+              </div>
             )}
 
-            {/* Icon dan hasil */}
-            <div className="w-20 h-20 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shadow">
-              <Icon icon="mdi:dna" width="40" height="40" />
-            </div>
+            {/* Kolom kanan (hasil) */}
+            <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left space-y-4">
+              {/* Icon */}
+              <div className="w-20 h-20 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shadow mx-auto md:mx-0">
+                <Icon icon="mdi:dna" width="40" height="40" />
+              </div>
 
-            <div className="text-center space-y-2">
-              <h3 className="text-xl font-semibold text-gray-800">
+              {/* Hasil prediksi */}
+              <h3 className="text-lg md:text-xl font-semibold text-gray-800">
                 Hasil Prediksi:
               </h3>
               <p
@@ -224,24 +228,28 @@ export default function Home() {
                 {result.prediction}
               </p>
 
-              <p className="text-xl font-semibold text-gray-800">
+              <h4 className="text-base md:text-lg font-semibold text-gray-800 mt-2">
                 Probabilitas:
-              </p>
-              <ul>
+              </h4>
+              <ul className="space-y-1">
                 {Object.entries(result.probabilities).map(([key, value]) => (
-                  <li key={key} className="text-gray-600 text-lg font-medium">
+                  <li
+                    key={key}
+                    className="text-gray-700 text-sm md:text-base font-medium"
+                  >
                     {key}: {value.toFixed(2)}%
                   </li>
                 ))}
               </ul>
-            </div>
 
-            <button
-              onClick={() => setShowModal(false)}
-              className="mt-4 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md shadow"
-            >
-              Tutup
-            </button>
+              {/* Tombol Tutup */}
+              <button
+                onClick={() => setShowModal(false)}
+                className="mt-4 px-6 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg shadow"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         ) : (
           <div className="p-6 text-center text-gray-500">
