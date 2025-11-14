@@ -1,9 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { HeartPulse, BookOpen, Sun, Microscope } from "lucide-react";
+import {
+  HeartPulse,
+  BookOpen,
+  Sun,
+  Microscope,
+  Menu,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { supabase } from "../../services/supabaseClient";
+
+// 1. Import komponen konten
+import WhatIsMelanoma from "../Components/WhatIsMelanoma";
+import VulnerableIndividuals from "../Components/VulnerableIndividuals";
+import AbcdeCriteria from "../Components/AbcdeCriteria";
+import UrgentSigns from "../Components/UrgentSigns";
+import FirstAid from "../Components/FirstAid";
+import SelfMonitoringEducation from "../Components/SelfMonitoringEducation";
+import GPRole from "../Components/GPRole";
+
+// 2. Definisikan list menu dan komponen yang sesuai
+const menuItems = [
+  { id: "whatIs", label: "Apa itu Melanoma?", component: WhatIsMelanoma },
+  {
+    id: "vulnerable",
+    label: "Individu Rentan Melanoma",
+    component: VulnerableIndividuals,
+  },
+  { id: "abcde", label: "Kriteria ABCDE", component: AbcdeCriteria },
+  { id: "urgentSign", label: "Tanda Urgent Melanoma", component: UrgentSigns },
+  {
+    id: "firstAid",
+    label: "Penanganan Pertama Pada Pasien Melanoma",
+    component: FirstAid,
+  },
+  {
+    id: "selfMonitor",
+    label: "Cara Edukasi untuk Pemantauan Mandiri",
+    component: SelfMonitoringEducation,
+  },
+  { id: "gpRole", label: "Peran Dokter Umum", component: GPRole },
+];
 
 export default function About({
   doctor: propDoctor,
@@ -11,11 +52,12 @@ export default function About({
 }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contentMenuOpen, setContentMenuOpen] = useState(false);
   const [doctor, setDoctor] = useState(
     propDoctor || JSON.parse(localStorage.getItem("doctorData"))
   );
+  const [activeMenu, setActiveMenu] = useState(menuItems[0].id);
 
-  // ✅ handle logout (fallback kalau tidak dikirim dari parent)
   const handleLogout =
     propLogout ||
     (async () => {
@@ -32,11 +74,28 @@ export default function About({
     }
   }, []);
 
+  const ActiveContentComponent = useMemo(() => {
+    const item = menuItems.find((item) => item.id === activeMenu);
+    return item ? item.component : null;
+  }, [activeMenu]);
+
+  const activeMenuLabel = useMemo(() => {
+    return (
+      menuItems.find((item) => item.id === activeMenu)?.label || "Pilih Materi"
+    );
+  }, [activeMenu]);
+
+  const handleContentMenuClick = (id) => {
+    setActiveMenu(id);
+    setContentMenuOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-pink-100 text-gray-800 relative">
-      {/* 🔹 Navbar */}
+    // Hapus pt-[56px] sm:pt-[60px] di sini karena kita akan menggunakan padding di dalam flex container
+    <div className="min-h-screen text-gray-800 relative bg-gray-50">
+      {/* 🔹 Navbar (FIXED) */}
       <nav className="w-full bg-white border-b border-gray-200 shadow-sm py-3 px-4 sm:px-6 flex justify-between items-center fixed top-0 left-0 z-20 transition-all duration-300">
-        {/* Logo */}
+        {/* ... (Navbar konten tetap sama) ... */}
         <div className="flex items-center gap-2">
           <Icon
             icon="mdi:skin"
@@ -48,12 +107,13 @@ export default function About({
             onClick={() => navigate("/")}
             className="text-base sm:text-lg font-bold text-gray-800 hover:text-pink-600 transition"
           >
-            Melanoma Detection
+            Deteksi Melanoma
           </button>
         </div>
 
-        {/* 🔹 Menu Desktop */}
+        {/* Menu Desktop & Mobile Button (Tetap sama) */}
         <div className="hidden sm:flex items-center gap-4 sm:gap-8">
+          {/* ... (Menu Desktop) ... */}
           <button
             onClick={() => navigate("/about")}
             className="text-gray-800 hover:text-pink-500 font-medium transition text-sm sm:text-base"
@@ -80,11 +140,12 @@ export default function About({
             </>
           )}
         </div>
-
-        {/* 🔹 Hamburger Menu (Mobile) */}
         <button
           className="sm:hidden text-pink-700 focus:outline-none"
-          onClick={() => setMenuOpen(!menuOpen)}
+          onClick={() => {
+            setMenuOpen(!menuOpen);
+            setContentMenuOpen(false);
+          }}
         >
           <Icon
             icon={menuOpen ? "mdi:close" : "mdi:menu"}
@@ -94,9 +155,10 @@ export default function About({
         </button>
       </nav>
 
-      {/* 🔹 Dropdown Mobile Menu */}
+      {/* 🔹 Dropdown Mobile Menu UTAMA & Dropdown Mobile Konten (TETAP SAMA) */}
+      {/* ... (Dropdown Mobile Menu Utama) ... */}
       <div
-        className={`sm:hidden fixed top-[56px] right-0 w-3/4 bg-white/90 backdrop-blur-md border-l border-pink-200 shadow-lg flex flex-col items-start py-4 px-6 space-y-3 z-20 rounded-l-2xl transform transition-all duration-300 ease-out ${
+        className={`sm:hidden fixed top-[56px] right-0 w-3/4 bg-white/90 backdrop-blur-md border-l border-pink-200 shadow-lg flex flex-col items-start py-4 px-6 space-y-3 z-30 rounded-l-2xl transform transition-all duration-300 ease-out ${
           menuOpen
             ? "translate-x-0 opacity-100"
             : "translate-x-full opacity-0 pointer-events-none"
@@ -120,7 +182,6 @@ export default function About({
         >
           Riwayat
         </button>
-
         {doctor && (
           <>
             <div className="border-t border-gray-300 w-full my-2"></div>
@@ -140,112 +201,120 @@ export default function About({
         )}
       </div>
 
-      {/* 🔹 Konten Utama */}
-      <div className="pt-24">
-        {/* Header Section */}
-        <section className="relative text-center py-16 px-6">
-          <motion.h1
-            initial={{ opacity: 0, y: -30 }}
+      {/* 🌟 Dropdown Menu Konten Mobile 🌟 */}
+      <div className="lg:hidden w-full px-4 py-3 bg-white border-b border-gray-200 z-10 sticky top-[56px] shadow-sm">
+        <button
+          onClick={() => {
+            setContentMenuOpen(!contentMenuOpen);
+            setMenuOpen(false);
+          }}
+          className="w-full flex justify-between items-center px-4 py-2 bg-pink-50 border border-pink-300 text-pink-700 font-semibold rounded-lg shadow-sm"
+        >
+          {activeMenuLabel}
+          {contentMenuOpen ? (
+            <ChevronUp className="w-5 h-5" />
+          ) : (
+            <ChevronDown className="w-5 h-5" />
+          )}
+        </button>
+        {contentMenuOpen && (
+          <motion.ul
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="text-4xl md:text-5xl font-bold text-pink-700 drop-shadow-lg"
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full left-0 w-full bg-white border border-pink-200 shadow-xl rounded-b-lg mt-1 z-40 overflow-hidden"
           >
-            Tentang Kanker Melanoma
-          </motion.h1>
-          <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-600">
-            Melanoma adalah salah satu jenis kanker kulit paling berbahaya yang
-            berkembang dari sel penghasil pigmen kulit (melanosit).
-          </p>
-        </section>
+            {menuItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  onClick={() => {
+                    if (item.component) {
+                      handleContentMenuClick(item.id);
+                    }
+                  }}
+                  className={`w-full text-left px-4 py-3 text-sm font-medium transition duration-200 ${
+                    activeMenu === item.id
+                      ? "bg-pink-100 text-pink-800 border-l-4 border-pink-600"
+                      : "text-gray-700 hover:bg-gray-50 border-l-4 border-transparent"
+                  } ${!item.component ? "cursor-not-allowed opacity-60" : ""}`}
+                  disabled={!item.component}
+                >
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </motion.ul>
+        )}
+      </div>
 
-        {/* Info Section */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto px-6 py-12">
+      {/* 🔹 Konten Utama & Menu Samping DESKTOP */}
+
+      {/* Container Utama untuk Desktop: Menambahkan padding atas untuk mengatasi Navbar FIXED */}
+      <div className="flex relative pt-[56px] sm:pt-[60px]">
+        {/* List disamping (DESKTOP FIXED) */}
+        <div
+          // KUNCI PERUBAHAN: Menghitung tinggi agar list menu mengisi sisa layar
+          className="flex-shrink-0 w-[280px] bg-white border-r border-gray-200 shadow-md hidden lg:block"
+        >
+          {/* KUNCI PERUBAHAN: Menjadikan div ini STICKY dan mengisi sisa tinggi layar */}
+          <div className="sticky top-[60px] h-[calc(100vh-60px)] overflow-y-auto">
+            <ul className="divide-y divide-gray-100">
+              {menuItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => {
+                      if (item.component) {
+                        setActiveMenu(item.id);
+                      }
+                    }}
+                    className={`w-full text-left px-6 py-4 font-medium transition duration-200
+                                    ${
+                                      activeMenu === item.id
+                                        ? "bg-gray-100 text-pink-600 border-l-4 border-pink-600"
+                                        : "bg-white text-gray-700 hover:bg-gray-50 border-l-4 border-transparent"
+                                    }
+                                    ${
+                                      !item.component
+                                        ? "cursor-not-allowed opacity-60"
+                                        : ""
+                                    }
+                                `}
+                    disabled={!item.component}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Main content yang dinamis (SCROLLABLE) */}
+        <div className="flex-grow w-full bg-white">
           <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-2xl shadow-lg p-8"
+            key={activeMenu}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="min-h-full"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <HeartPulse className="text-pink-600 w-8 h-8" />
-              <h2 className="text-2xl font-semibold text-pink-700">
-                Apa itu Melanoma?
-              </h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              Melanoma merupakan kanker kulit yang muncul ketika sel melanosit
-              tumbuh tidak terkendali. Walaupun jumlah kasusnya lebih sedikit
-              dibanding kanker kulit lain, melanoma lebih berbahaya karena dapat
-              menyebar ke organ tubuh lainnya.
-            </p>
+            {/* Render Komponen yang Aktif */}
+            {ActiveContentComponent ? (
+              <ActiveContentComponent />
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <Microscope className="w-12 h-12 mx-auto mb-4 text-pink-500" />
+                <p className="text-xl font-semibold">Konten Segera Hadir</p>
+                <p>
+                  Informasi untuk "
+                  {menuItems.find((item) => item.id === activeMenu)?.label}"
+                  sedang kami siapkan.
+                </p>
+              </div>
+            )}
           </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-2xl shadow-lg p-8"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <Sun className="text-yellow-500 w-8 h-8" />
-              <h2 className="text-2xl font-semibold text-pink-700">
-                Penyebab & Faktor Risiko
-              </h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              Paparan sinar UV yang berlebihan, kulit putih, riwayat keluarga,
-              banyak tahi lalat, dan sistem imun lemah dapat meningkatkan risiko
-              terkena melanoma.
-            </p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-2xl shadow-lg p-8"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <Microscope className="text-blue-600 w-8 h-8" />
-              <h2 className="text-2xl font-semibold text-pink-700">
-                Gejala Umum
-              </h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              Perubahan ukuran, bentuk, atau warna tahi lalat, muncul bercak
-              berpigmen yang tidak biasa, hingga luka yang tidak sembuh-sembuh
-              adalah tanda yang perlu diwaspadai.
-            </p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white rounded-2xl shadow-lg p-8"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <BookOpen className="text-green-600 w-8 h-8" />
-              <h2 className="text-2xl font-semibold text-pink-700">
-                Pencegahan
-              </h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              Gunakan tabir surya, hindari paparan sinar matahari berlebihan,
-              periksa kulit secara rutin, dan lakukan deteksi dini untuk
-              mengurangi risiko melanoma.
-            </p>
-          </motion.div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="text-center py-16 px-6 bg-pink-700 text-white">
-          <h2 className="text-3xl font-bold mb-4">
-            Kenali, Cegah, dan Lindungi
-          </h2>
-          <p className="max-w-2xl mx-auto mb-6">
-            Informasi dan deteksi dini adalah kunci untuk melawan melanoma. Jaga
-            kesehatan kulitmu mulai sekarang.
-          </p>
-          <Link
-            to={"/"}
-            className="px-6 py-3 bg-white text-pink-700 rounded-full font-semibold shadow-md hover:shadow-xl transition"
-          >
-            Prediksi sekarang
-          </Link>
-        </section>
+        </div>
       </div>
     </div>
   );
