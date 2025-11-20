@@ -39,6 +39,9 @@ export default function HistoryPage({
     propDoctor || JSON.parse(localStorage.getItem("doctorData"))
   );
 
+  // 🔹 State untuk Notifikasi Estetik
+  const [notification, setNotification] = useState(null);
+
   // 🔹 Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -86,6 +89,76 @@ export default function HistoryPage({
     }
   };
 
+  // 🔹 FUNGSI DELETE DENGAN NOTIFIKASI BARU
+  const handleDelete = async (e, id_examination, patient_id) => {
+    e.stopPropagation();
+
+    // Reset notifikasi lama jika ada
+    setNotification(null);
+
+    // 1. Konfirmasi tetap pakai SweetAlert (Lebih aman untuk delete)
+    const result = await Swal.fire({
+      title: "Hapus Data?",
+      text: "Data pemeriksaan dan pasien akan dihapus permanen!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#fb7185", // Pink-400 (sesuai tema)
+      cancelButtonColor: "#94a3b8", // Gray-400
+      confirmButtonText: "Ya, Hapus",
+      cancelButtonText: "Batal",
+      customClass: {
+        popup: "rounded-xl",
+      },
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Hapus Examination
+        const { error: examError } = await supabase
+          .from("examinations")
+          .delete()
+          .eq("id_examination", id_examination);
+
+        if (examError) throw examError;
+
+        // Hapus Patient
+        if (patient_id) {
+          const { error: patientError } = await supabase
+            .from("patients")
+            .delete()
+            .eq("id", patient_id);
+
+          if (patientError) throw patientError;
+        }
+
+        // Update UI Table
+        setHistory((prev) =>
+          prev.filter((item) => item.id_examination !== id_examination)
+        );
+
+        // 🔹 TAMPILKAN NOTIFIKASI SUKSES (Ganti Swal Success)
+        setNotification({
+          type: "success",
+          title: "Berhasil Dihapus",
+          message: "Data riwayat pemeriksaan telah dihapus.",
+        });
+
+        // Hilang otomatis setelah 3 detik
+        setTimeout(() => setNotification(null), 3000);
+      } catch (error) {
+        console.error("Delete error:", error);
+
+        // 🔹 TAMPILKAN NOTIFIKASI ERROR
+        setNotification({
+          type: "error",
+          title: "Gagal Menghapus",
+          message: "Terjadi kesalahan server.",
+        });
+        setTimeout(() => setNotification(null), 3000);
+      }
+    }
+  };
+
   const handleSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -121,7 +194,6 @@ export default function HistoryPage({
     item.patients?.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // 🔹 Pagination Logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -134,7 +206,74 @@ export default function HistoryPage({
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-white text-gray-800 relative overflow-x-hidden">
+      {/* 🔹 CSS Animasi Custom */}
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in {
+          animation: slideIn 0.4s ease-out forwards;
+        }
+      `}</style>
+
+      {/* 🔹 KOMPONEN NOTIFIKASI (Toast) */}
+      {notification && (
+        <div className="fixed top-24 right-6 z-50 animate-slide-in">
+          <div
+            className={`
+            flex items-start gap-4 px-6 py-4 
+            bg-white rounded-xl shadow-2xl 
+            border-l-4 max-w-sm w-full
+            ${
+              notification.type === "success"
+                ? "border-emerald-500"
+                : "border-rose-500"
+            }
+          `}
+          >
+            <div className="flex-shrink-0">
+              {notification.type === "success" ? (
+                <Icon
+                  icon="mdi:check-circle-outline"
+                  className="text-emerald-500"
+                  width="24"
+                  height="24"
+                />
+              ) : (
+                <Icon
+                  icon="mdi:alert-circle-outline"
+                  className="text-rose-500"
+                  width="24"
+                  height="24"
+                />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3
+                className={`font-bold text-sm ${
+                  notification.type === "success"
+                    ? "text-emerald-800"
+                    : "text-rose-800"
+                }`}
+              >
+                {notification.title}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <Icon icon="mdi:close" width="16" height="16" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 🔹 Navbar */}
       <nav
         className={`w-full bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm py-3 px-4 sm:px-6 flex justify-between items-center fixed top-0 left-0 z-20 transition-all duration-300 ${
@@ -252,12 +391,13 @@ export default function HistoryPage({
                   </th>
                 ))}
                 <th className="px-4 py-3 text-left font-semibold">Gambar</th>
+                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-4 text-gray-500">
+                  <td colSpan="8" className="text-center py-4 text-gray-500">
                     Tidak ada data ditemukan.
                   </td>
                 </tr>
@@ -266,7 +406,7 @@ export default function HistoryPage({
                   <tr
                     key={item.id_examination}
                     onClick={() => openModal(item)}
-                    className="hover:bg-pink-50 transition cursor-pointer"
+                    className="hover:bg-pink-50 transition cursor-pointer border-b border-gray-100"
                   >
                     <td className="px-4 py-3 font-medium text-gray-800">
                       {item.id_examination}
@@ -293,6 +433,25 @@ export default function HistoryPage({
                         className="w-16 h-16 object-cover rounded-md border"
                       />
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={(e) =>
+                          handleDelete(
+                            e,
+                            item.id_examination,
+                            item.patients?.id
+                          )
+                        }
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition"
+                        title="Hapus Data"
+                      >
+                        <Icon
+                          icon="mdi:trash-can-outline"
+                          width="24"
+                          height="24"
+                        />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -311,16 +470,25 @@ export default function HistoryPage({
               <div
                 key={item.id_examination}
                 onClick={() => openModal(item)}
-                className="border border-gray-200 rounded-xl p-4 shadow-sm bg-white hover:shadow-md transition cursor-pointer"
+                className="border border-gray-200 rounded-xl p-4 shadow-sm bg-white hover:shadow-md transition cursor-pointer relative"
               >
-                <div className="flex items-center gap-4">
+                <button
+                  onClick={(e) =>
+                    handleDelete(e, item.id_examination, item.patients?.id)
+                  }
+                  className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1"
+                >
+                  <Icon icon="mdi:trash-can-outline" width="24" height="24" />
+                </button>
+
+                <div className="flex items-center gap-4 mt-2">
                   <img
                     src={item.image_url}
                     alt="hasil"
                     className="w-20 h-20 object-cover rounded-lg border"
                   />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 text-base">
+                    <h3 className="font-semibold text-gray-900 text-base pr-8">
                       {item.patients?.full_name}
                     </h3>
                     <p className="text-sm text-gray-600">
@@ -345,7 +513,7 @@ export default function HistoryPage({
           )}
         </div>
 
-        {/* 🔹 Pagination (Universal for Desktop & Mobile) */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 mb-12">
             <button
@@ -381,7 +549,7 @@ export default function HistoryPage({
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal Detail */}
       <DetailModal
         isOpen={isModalOpen}
         onClose={closeModal}
