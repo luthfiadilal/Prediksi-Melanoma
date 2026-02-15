@@ -84,8 +84,10 @@ export default function PredictionResult({ data }) {
           <span
             className={
               data.model_prediction === "Melanoma"
-                ? "text-red-600 font-bold"
-                : "text-green-600 font-bold"
+                ? "text-green-600 font-bold"
+                : data.model_prediction === "NonSkin"
+                  ? "text-gray-600 font-bold"
+                  : "text-red-600 font-bold"
             }
           >
             {data.model_prediction}
