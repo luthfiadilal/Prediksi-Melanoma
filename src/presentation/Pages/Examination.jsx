@@ -56,9 +56,15 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrl } = supabase.storage
+      // const { data: publicUrl } = supabase.storage
+      //   .from("image")
+      //   .getPublicUrl(fileName);
+
+      const { data: signedUrlData } = await supabase.storage
         .from("image")
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 60 * 60 * 24 * 30); // berlaku 30 hari
+
+      const fileUrl = signedUrlData?.signedUrl;
 
       // 🔹 Prediksi
       const prediction = await predictMelanomaUseCase(image);
@@ -94,7 +100,7 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
             id_examination: newId,
             patient_id: patient.id,
             doctor_id: doctor.id,
-            image_url: publicUrl.publicUrl,
+            image_url: fileUrl,
             model_prediction: prediction.prediction,
             confidence_score: confidenceValue,
           },
