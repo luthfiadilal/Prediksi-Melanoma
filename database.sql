@@ -12,7 +12,7 @@ CREATE TABLE public.doctors (
   CONSTRAINT doctors_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.examinations (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_examination text NOT NULL,
   patient_id uuid,
   doctor_id uuid,
   examination_date timestamp with time zone DEFAULT now(),
@@ -21,7 +21,7 @@ CREATE TABLE public.examinations (
   confidence_score numeric,
   notes text,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT examinations_pkey PRIMARY KEY (id),
+  CONSTRAINT examinations_pkey PRIMARY KEY (id_examination),
   CONSTRAINT examinations_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
   CONSTRAINT examinations_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctors(id)
 );
