@@ -3,7 +3,6 @@ import { supabase } from "../../services/supabaseClient";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import DetailModal from "./DetailModal";
 
 const formatDateTime = (dateString) => {
   if (!dateString) return "-";
@@ -16,7 +15,7 @@ const formatDateTime = (dateString) => {
       hour: "2-digit",
       minute: "2-digit",
     });
-  } catch (error) {
+  } catch {
     return dateString;
   }
 };
@@ -29,22 +28,13 @@ export default function HistoryPage({
   const [menuOpen, setMenuOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "examination_date",
-    direction: "desc",
-  });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedHistory, setSelectedHistory] = useState(null);
-  const [doctor, setDoctor] = useState(
+  const [doctor] = useState(
     propDoctor || JSON.parse(localStorage.getItem("doctorData"))
   );
 
-  // 🔹 State untuk Notifikasi Estetik
-  const [notification, setNotification] = useState(null);
-
-  // 🔹 Pagination State
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 8;
 
   const handleLogout =
     propLogout ||
@@ -71,12 +61,7 @@ export default function HistoryPage({
           `
           id_examination,
           examination_date,
-          model_prediction,
-          confidence_score,
-          image_url,
-          notes,
-          patients (id, full_name, gender, birth_date, complaint),
-          doctors (full_name)
+          patients (id, full_name, gender, birth_date)
         `
         )
         .order("examination_date", { ascending: false });
@@ -89,115 +74,33 @@ export default function HistoryPage({
     }
   };
 
-  // 🔹 FUNGSI DELETE DENGAN NOTIFIKASI BARU
-  const handleDelete = async (e, id_examination, patient_id) => {
-    e.stopPropagation();
-
-    // Reset notifikasi lama jika ada
-    setNotification(null);
-
-    // 1. Konfirmasi tetap pakai SweetAlert (Lebih aman untuk delete)
-    const result = await Swal.fire({
-      title: "Hapus Data?",
-      text: "Data pemeriksaan dan pasien akan dihapus permanen!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#fb7185", // Pink-400 (sesuai tema)
-      cancelButtonColor: "#94a3b8", // Gray-400
-      confirmButtonText: "Ya, Hapus",
-      cancelButtonText: "Batal",
-      customClass: {
-        popup: "rounded-xl",
-      },
-    });
-
-    if (result.isConfirmed) {
-      try {
-        // Hapus Examination
-        const { error: examError } = await supabase
-          .from("examinations")
-          .delete()
-          .eq("id_examination", id_examination);
-
-        if (examError) throw examError;
-
-        // Hapus Patient
-        if (patient_id) {
-          const { error: patientError } = await supabase
-            .from("patients")
-            .delete()
-            .eq("id", patient_id);
-
-          if (patientError) throw patientError;
-        }
-
-        // Update UI Table
-        setHistory((prev) =>
-          prev.filter((item) => item.id_examination !== id_examination)
-        );
-
-        // 🔹 TAMPILKAN NOTIFIKASI SUKSES (Ganti Swal Success)
-        setNotification({
-          type: "success",
-          title: "Berhasil Dihapus",
-          message: "Data riwayat pemeriksaan telah dihapus.",
-        });
-
-        // Hilang otomatis setelah 3 detik
-        setTimeout(() => setNotification(null), 3000);
-      } catch (error) {
-        console.error("Delete error:", error);
-
-        // 🔹 TAMPILKAN NOTIFIKASI ERROR
-        setNotification({
-          type: "error",
-          title: "Gagal Menghapus",
-          message: "Terjadi kesalahan server.",
-        });
-        setTimeout(() => setNotification(null), 3000);
-      }
-    }
-  };
-
-  const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const openModal = (item) => {
-    setSelectedHistory(item);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedHistory(null);
-  };
-
-  const sortedData = [...history].sort((a, b) => {
-    const { key, direction } = sortConfig;
-    const aValue = key.includes(".")
-      ? key.split(".").reduce((o, i) => o[i], a)
-      : a[key];
-    const bValue = key.includes(".")
-      ? key.split(".").reduce((o, i) => o[i], b)
-      : b[key];
-    if (aValue < bValue) return direction === "asc" ? -1 : 1;
-    if (aValue > bValue) return direction === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const filteredData = sortedData.filter((item) =>
+  // Group unik per pasien
+  const filteredData = history.filter((item) =>
     item.patients?.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const patientMap = {};
+  filteredData.forEach((item) => {
+    const pid = item.patients?.id || "unknown";
+    if (!patientMap[pid]) {
+      patientMap[pid] = {
+        patient: item.patients,
+        count: 0,
+        latestDate: item.examination_date,
+      };
+    }
+    patientMap[pid].count += 1;
+    if (item.examination_date > patientMap[pid].latestDate) {
+      patientMap[pid].latestDate = item.examination_date;
+    }
+  });
+
+  const patientList = Object.values(patientMap);
+
+  const totalPages = Math.ceil(patientList.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const currentPatients = patientList.slice(indexOfFirstItem, indexOfLastItem);
 
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
@@ -207,86 +110,19 @@ export default function HistoryPage({
 
   return (
     <div className="min-h-screen bg-white text-gray-800 relative overflow-x-hidden">
-      {/* 🔹 CSS Animasi Custom */}
+      {/* Animasi CSS */}
       <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        .animate-slide-in {
-          animation: slideIn 0.4s ease-out forwards;
-        }
+        .animate-fade-up { animation: fadeUp 0.3s ease-out forwards; }
       `}</style>
 
-      {/* 🔹 KOMPONEN NOTIFIKASI (Toast) */}
-      {notification && (
-        <div className="fixed top-24 right-6 z-50 animate-slide-in">
-          <div
-            className={`
-            flex items-start gap-4 px-6 py-4 
-            bg-white rounded-xl shadow-2xl 
-            border-l-4 max-w-sm w-full
-            ${
-              notification.type === "success"
-                ? "border-emerald-500"
-                : "border-rose-500"
-            }
-          `}
-          >
-            <div className="flex-shrink-0">
-              {notification.type === "success" ? (
-                <Icon
-                  icon="mdi:check-circle-outline"
-                  className="text-emerald-500"
-                  width="24"
-                  height="24"
-                />
-              ) : (
-                <Icon
-                  icon="mdi:alert-circle-outline"
-                  className="text-rose-500"
-                  width="24"
-                  height="24"
-                />
-              )}
-            </div>
-            <div className="flex-1">
-              <h3
-                className={`font-bold text-sm ${
-                  notification.type === "success"
-                    ? "text-emerald-800"
-                    : "text-rose-800"
-                }`}
-              >
-                {notification.title}
-              </h3>
-              <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-                {notification.message}
-              </p>
-            </div>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <Icon icon="mdi:close" width="16" height="16" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🔹 Navbar */}
-      <nav
-        className={`w-full bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm py-3 px-4 sm:px-6 flex justify-between items-center fixed top-0 left-0 z-20 transition-all duration-300 ${
-          isModalOpen ? "blur-sm pointer-events-none" : ""
-        }`}
-      >
+      {/* Navbar */}
+      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm py-3 px-4 sm:px-6 flex justify-between items-center fixed top-0 left-0 z-20">
         <div className="flex items-center gap-2">
-          <Icon
-            icon="mdi:skin"
-            width="28"
-            height="28"
-            className="text-pink-600"
-          />
+          <Icon icon="mdi:skin" width="28" height="28" className="text-pink-600" />
           <button
             onClick={() => navigate("/")}
             className="text-base sm:text-lg font-bold text-gray-800 hover:text-pink-600 transition"
@@ -305,15 +141,13 @@ export default function HistoryPage({
           </button>
           <button
             onClick={() => navigate("/history")}
-            className="text-gray-700 hover:text-pink-600 font-medium transition"
+            className="text-pink-600 font-semibold transition"
           >
             Riwayat
           </button>
           {doctor && (
             <>
-              <span className="text-gray-700 font-medium">
-                {doctor.full_name}
-              </span>
+              <span className="text-gray-700 font-medium">{doctor.full_name}</span>
               <button
                 onClick={handleLogout}
                 className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-md font-medium transition"
@@ -329,187 +163,160 @@ export default function HistoryPage({
           className="sm:hidden text-gray-800 focus:outline-none"
           onClick={() => setMenuOpen(!menuOpen)}
         >
-          <Icon
-            icon={menuOpen ? "mdi:close" : "mdi:menu"}
-            width="28"
-            height="28"
-          />
+          <Icon icon={menuOpen ? "mdi:close" : "mdi:menu"} width="28" height="28" />
         </button>
       </nav>
 
-      {/* 🔹 Main Content */}
-      <div
-        className={`pt-24 px-3 sm:px-8 max-w-6xl mx-auto bg-white transition-all duration-300 ${
-          isModalOpen ? "blur-sm pointer-events-none" : ""
-        }`}
-      >
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+      {/* Main Content */}
+      <div className="pt-24 px-3 sm:px-8 max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
           Riwayat Pemeriksaan
         </h2>
+        <p className="text-center text-gray-500 text-sm mb-6">
+          Pilih pasien untuk melihat riwayat pemeriksaannya
+        </p>
 
-        <div className="mb-4 flex justify-start">
-          <input
-            type="text"
-            placeholder="Cari nama pasien..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-64 focus:ring-2 focus:ring-pink-400 focus:outline-none"
-          />
+        {/* Search */}
+        <div className="mb-5 flex justify-start">
+          <div className="relative w-full sm:w-72">
+            <Icon
+              icon="mdi:magnify"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              width="18"
+              height="18"
+            />
+            <input
+              type="text"
+              placeholder="Cari nama pasien..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="border border-gray-300 rounded-lg pl-9 pr-4 py-2 w-full focus:ring-2 focus:ring-pink-400 focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* Desktop Table */}
-        <div className="hidden sm:block overflow-x-auto bg-white shadow-lg rounded-xl border border-gray-200 mb-6">
+        {/* ==== Desktop Table ==== */}
+        <div className="hidden sm:block overflow-x-auto bg-white shadow-lg rounded-xl border border-gray-200 mb-6 animate-fade-up">
           <table className="min-w-full text-sm text-gray-700">
             <thead className="bg-pink-100 text-gray-900">
               <tr>
-                {[
-                  { key: "id_examination", label: "ID Pasien" },
-                  { key: "patients.full_name", label: "Nama Pasien" },
-                  { key: "doctors.full_name", label: "Dokter" },
-                  { key: "examination_date", label: "Tanggal" },
-                  { key: "model_prediction", label: "Prediksi" },
-                  { key: "confidence_score", label: "Confidence" },
-                ].map((col) => (
-                  <th
-                    key={col.key}
-                    onClick={() => handleSort(col.key)}
-                    className="px-4 py-3 text-left font-semibold cursor-pointer hover:bg-pink-200 transition select-none"
-                  >
-                    {col.label}{" "}
-                    {sortConfig.key === col.key && (
-                      <Icon
-                        icon={
-                          sortConfig.direction === "asc"
-                            ? "mdi:arrow-up"
-                            : "mdi:arrow-down"
-                        }
-                        className="inline-block ml-1 text-pink-700"
-                        width="16"
-                        height="16"
-                      />
-                    )}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-left font-semibold">Gambar</th>
-                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                <th className="px-5 py-3 text-left font-semibold w-10">#</th>
+                <th className="px-5 py-3 text-left font-semibold">Nama Pasien</th>
+                <th className="px-5 py-3 text-left font-semibold">Jenis Kelamin</th>
+                <th className="px-5 py-3 text-left font-semibold">Pemeriksaan Terakhir</th>
+                <th className="px-5 py-3 text-left font-semibold">Jumlah Riwayat</th>
+                <th className="px-5 py-3 text-center font-semibold"></th>
               </tr>
             </thead>
             <tbody>
-              {currentItems.length === 0 ? (
+              {currentPatients.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-4 text-gray-500">
-                    Tidak ada data ditemukan.
+                  <td colSpan="6" className="text-center py-10 text-gray-500">
+                    Tidak ada data pasien ditemukan.
                   </td>
                 </tr>
               ) : (
-                currentItems.map((item) => (
-                  <tr
-                    key={item.id_examination}
-                    onClick={() => openModal(item)}
-                    className="hover:bg-pink-50 transition cursor-pointer border-b border-gray-100"
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-800">
-                      {item.id_examination}
-                    </td>
-                    <td className="px-4 py-3">{item.patients?.full_name}</td>
-                    <td className="px-4 py-3">{item.doctors?.full_name}</td>
-                    <td className="px-4 py-3">
-                      {formatDateTime(item.examination_date)}
-                    </td>
-                    <td
-                      className={`px-4 py-3 font-semibold ${
-                        item.model_prediction === "Melanoma"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
+                currentPatients.map(({ patient, count, latestDate }, idx) => {
+                  const pid = patient?.id || "unknown";
+                  return (
+                    <tr
+                      key={pid}
+                      onClick={() => navigate(`/history/${pid}`)}
+                      className="hover:bg-pink-50 transition cursor-pointer border-b border-gray-100 group"
                     >
-                      {item.model_prediction}
-                    </td>
-                    <td className="px-4 py-3">{item.confidence_score}%</td>
-                    <td className="px-4 py-3">
-                      <img
-                        src={item.image_url}
-                        alt="hasil"
-                        className="w-16 h-16 object-cover rounded-md border"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={(e) =>
-                          handleDelete(
-                            e,
-                            item.id_examination,
-                            item.patients?.id
-                          )
-                        }
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition"
-                        title="Hapus Data"
-                      >
+                      <td className="px-5 py-4 text-gray-400 text-sm">
+                        {indexOfFirstItem + idx + 1}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold text-sm flex-shrink-0 group-hover:bg-pink-200 transition">
+                            {patient?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                          <span className="font-semibold text-gray-800">
+                            {patient?.full_name || "-"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-gray-600">
+                        {patient?.gender === "L"
+                          ? "Laki-laki"
+                          : patient?.gender === "P"
+                            ? "Perempuan"
+                            : patient?.gender || "-"}
+                      </td>
+                      <td className="px-5 py-4 text-gray-500 text-sm">
+                        {formatDateTime(latestDate)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="bg-pink-100 text-pink-700 text-xs font-semibold px-2 py-1 rounded-full">
+                          {count} pemeriksaan
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
                         <Icon
-                          icon="mdi:trash-can-outline"
-                          width="24"
-                          height="24"
+                          icon="mdi:chevron-right"
+                          className="inline-block text-pink-400 group-hover:text-pink-600 transition"
+                          width="22"
+                          height="22"
                         />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile Card View */}
-        <div className="block sm:hidden space-y-4 mb-6">
-          {currentItems.length === 0 ? (
-            <p className="text-center text-gray-500">
-              Tidak ada data ditemukan.
+        {/* ==== Mobile Card View ==== */}
+        <div className="block sm:hidden space-y-3 mb-6">
+          {currentPatients.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">
+              Tidak ada data pasien ditemukan.
             </p>
           ) : (
-            currentItems.map((item) => (
-              <div
-                key={item.id_examination}
-                onClick={() => openModal(item)}
-                className="border border-gray-200 rounded-xl p-4 shadow-sm bg-white hover:shadow-md transition cursor-pointer relative"
-              >
-                <button
-                  onClick={(e) =>
-                    handleDelete(e, item.id_examination, item.patients?.id)
-                  }
-                  className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1"
+            currentPatients.map(({ patient, count, latestDate }) => {
+              const pid = patient?.id || "unknown";
+              return (
+                <div
+                  key={pid}
+                  onClick={() => navigate(`/history/${pid}`)}
+                  className="border border-gray-200 rounded-xl p-4 shadow-sm bg-white hover:shadow-md hover:border-pink-300 transition cursor-pointer flex items-center gap-4 animate-fade-up"
                 >
-                  <Icon icon="mdi:trash-can-outline" width="24" height="24" />
-                </button>
-
-                <div className="flex items-center gap-4 mt-2">
-                  <img
-                    src={item.image_url}
-                    alt="hasil"
-                    className="w-20 h-20 object-cover rounded-lg border"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 text-base pr-8">
-                      {item.patients?.full_name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Dokter: {item.doctors?.full_name}
+                  <div className="w-11 h-11 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold text-lg flex-shrink-0">
+                    {patient?.full_name?.charAt(0)?.toUpperCase() || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800">
+                      {patient?.full_name || "-"}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {formatDateTime(item.examination_date)}
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {patient?.gender === "L"
+                        ? "Laki-laki"
+                        : patient?.gender === "P"
+                          ? "Perempuan"
+                          : patient?.gender || "-"}{" "}
+                      •{" "}
+                      <span className="text-pink-600 font-medium">
+                        {count} pemeriksaan
+                      </span>
                     </p>
-                    <p
-                      className={`font-semibold mt-1 ${
-                        item.model_prediction === "Melanoma"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {item.model_prediction} ({item.confidence_score}%)
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Terakhir: {formatDateTime(latestDate)}
                     </p>
                   </div>
+                  <Icon
+                    icon="mdi:chevron-right"
+                    className="text-pink-400 flex-shrink-0"
+                    width="22"
+                    height="22"
+                  />
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -528,11 +335,10 @@ export default function HistoryPage({
               <button
                 key={i}
                 onClick={() => handlePageChange(i + 1)}
-                className={`px-3 py-1 rounded-md border text-sm font-medium transition ${
-                  currentPage === i + 1
-                    ? "bg-pink-500 text-white border-pink-500"
-                    : "hover:bg-pink-100 text-gray-700"
-                }`}
+                className={`px-3 py-1 rounded-md border text-sm font-medium transition ${currentPage === i + 1
+                  ? "bg-pink-500 text-white border-pink-500"
+                  : "hover:bg-pink-100 text-gray-700"
+                  }`}
               >
                 {i + 1}
               </button>
@@ -548,13 +354,6 @@ export default function HistoryPage({
           </div>
         )}
       </div>
-
-      {/* Modal Detail */}
-      <DetailModal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        data={selectedHistory}
-      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ CREATE TABLE public.examinations (
   confidence_score numeric,
   notes text,
   created_at timestamp with time zone DEFAULT now(),
+  complaint text,
   CONSTRAINT examinations_pkey PRIMARY KEY (id_examination),
   CONSTRAINT examinations_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
   CONSTRAINT examinations_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctors(id)
@@ -30,7 +31,6 @@ CREATE TABLE public.patients (
   full_name character varying NOT NULL,
   birth_date date,
   gender character varying,
-  complaint text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT patients_pkey PRIMARY KEY (id)

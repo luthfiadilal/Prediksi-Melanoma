@@ -101,11 +101,10 @@ export default function Homes() {
 
       {/* 🔹 Dropdown Mobile Menu */}
       <div
-        className={`sm:hidden fixed top-[56px] right-0 w-3/4 bg-white/90 backdrop-blur-md border-l border-white/30 shadow-lg flex flex-col items-start py-4 px-6 space-y-3 z-20 rounded-l-2xl transform transition-all duration-300 ease-out ${
-          menuOpen
+        className={`sm:hidden fixed top-[56px] right-0 w-3/4 bg-white/90 backdrop-blur-md border-l border-white/30 shadow-lg flex flex-col items-start py-4 px-6 space-y-3 z-20 rounded-l-2xl transform transition-all duration-300 ease-out ${menuOpen
             ? "translate-x-0 opacity-100"
             : "translate-x-full opacity-0 pointer-events-none"
-        }`}
+          }`}
       >
         <button
           onClick={() => {
@@ -175,7 +174,12 @@ export default function Homes() {
                   onResult={(r) => setResult(r)}
                 />
               )}
-              {result && <PredictionResult data={result} />}
+              {result && (
+                <PredictionResult
+                  data={result}
+                  onRetake={() => setResult(null)}
+                />
+              )}
             </>
           )}
         </div>

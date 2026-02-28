@@ -5,6 +5,7 @@ import About from "./presentation/Pages/About";
 import RegisterDoctor from "./presentation/Pages/RegisterDoctor";
 import LoginDoctor from "./presentation/Pages/LoginDoctor";
 import HistoryPage from "./presentation/Pages/History";
+import PatientExaminations from "./presentation/Pages/PatientExaminations";
 
 export default function App() {
   const [doctor, setDoctor] = useState(null);
@@ -32,6 +33,10 @@ export default function App() {
         <Route
           path="/history"
           element={<HistoryPage doctor={doctor} handleLogout={handleLogout} />}
+        />
+        <Route
+          path="/history/:patientId"
+          element={<PatientExaminations />}
         />
       </Routes>
     </Router>

@@ -71,7 +71,7 @@ export default function DetailModal({ isOpen, onClose, data }) {
             </div>
             <div>
               <span className="font-semibold block mb-0.5">Keluhan</span>
-              <p>{data.patients?.complaint || "-"}</p>
+              <p>{data.complaint || "-"}</p>
             </div>
 
             <div>

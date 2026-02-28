@@ -8,7 +8,6 @@ export default function PatientRegistration({ onRegistered }) {
     full_name: "",
     birth_date: "",
     gender: "Laki-laki",
-    complaint: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +42,7 @@ export default function PatientRegistration({ onRegistered }) {
       try {
         const { data, error } = await supabase
           .from("patients")
-          .select("id, full_name, birth_date, gender, complaint")
+          .select("id, full_name, birth_date, gender")
           .ilike("full_name", `%${query}%`)
           .limit(10);
 
@@ -68,7 +67,6 @@ export default function PatientRegistration({ onRegistered }) {
       full_name: patient.full_name,
       birth_date: patient.birth_date || "",
       gender: patient.gender || "Laki-laki",
-      complaint: "",          // keluhan dikosongkan karena ini kunjungan baru
     });
   };
 
@@ -78,7 +76,7 @@ export default function PatientRegistration({ onRegistered }) {
     setSelectedPatient(null);
     setSearchResults([]);
     setShowDropdown(false);
-    setForm({ full_name: "", birth_date: "", gender: "Laki-laki", complaint: "" });
+    setForm({ full_name: "", birth_date: "", gender: "Laki-laki" });
   };
 
   const handleSubmit = async (e) => {
@@ -88,13 +86,13 @@ export default function PatientRegistration({ onRegistered }) {
       let patientData;
 
       if (selectedPatient) {
-        // Pasien lama — pakai data yang sudah ada, update complaint jika perlu
-        patientData = { ...selectedPatient, complaint: form.complaint };
+        // Pasien lama — pakai data yang sudah ada
+        patientData = { ...selectedPatient };
       } else {
-        // Pasien baru — insert ke tabel patients
+        // Pasien baru — insert ke tabel patients (tanpa complaint)
         const { data, error } = await supabase
           .from("patients")
-          .insert([form])
+          .insert([{ full_name: form.full_name, birth_date: form.birth_date, gender: form.gender }])
           .select()
           .single();
 
@@ -114,7 +112,7 @@ export default function PatientRegistration({ onRegistered }) {
       onRegistered?.(patientData);
 
       // Reset form setelah submit
-      setForm({ full_name: "", birth_date: "", gender: "Laki-laki", complaint: "" });
+      setForm({ full_name: "", birth_date: "", gender: "Laki-laki" });
       setSearchQuery("");
       setSelectedPatient(null);
     } catch (err) {
@@ -217,7 +215,7 @@ export default function PatientRegistration({ onRegistered }) {
         {selectedPatient && (
           <p className="text-xs text-pink-600 font-medium flex items-center gap-1 mt-1">
             <Icon icon="mdi:check-circle" width="15" />
-            Data pasien lama dimuat — keluhan dapat diperbarui di bawah
+            Data pasien lama dimuat — silakan lanjutkan pemeriksaan
           </p>
         )}
       </div>
@@ -236,8 +234,8 @@ export default function PatientRegistration({ onRegistered }) {
           required
           readOnly={!!selectedPatient}
           className={`w-full border p-3 rounded-lg outline-none transition ${selectedPatient
-              ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
-              : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
+            ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
+            : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
             }`}
         />
       </div>
@@ -257,8 +255,8 @@ export default function PatientRegistration({ onRegistered }) {
             required
             readOnly={!!selectedPatient}
             className={`w-full border p-3 rounded-lg outline-none transition ${selectedPatient
-                ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
-                : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
+              ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
+              : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
               }`}
           />
         </div>
@@ -274,8 +272,8 @@ export default function PatientRegistration({ onRegistered }) {
             onChange={handleChange}
             disabled={!!selectedPatient}
             className={`w-full border p-3 rounded-lg outline-none transition ${selectedPatient
-                ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
-                : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
+              ? "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
+              : "border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100"
               }`}
           >
             <option value="Laki-laki">Laki-laki</option>
@@ -284,23 +282,6 @@ export default function PatientRegistration({ onRegistered }) {
         </div>
       </div>
 
-      {/* Keluhan */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Keluhan Pasien
-          {selectedPatient && (
-            <span className="ml-2 text-xs text-pink-500 font-normal">(isi keluhan kunjungan ini)</span>
-          )}
-        </label>
-        <textarea
-          name="complaint"
-          placeholder="Tuliskan keluhan pasien..."
-          value={form.complaint}
-          onChange={handleChange}
-          rows="3"
-          className="w-full border border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100 p-3 rounded-lg outline-none transition resize-none"
-        />
-      </div>
 
       {/* Tombol Submit */}
       <button

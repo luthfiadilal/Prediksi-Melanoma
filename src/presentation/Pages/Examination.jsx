@@ -11,6 +11,7 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
   const [preview, setPreview] = useState(null);
   const [isCamera, setIsCamera] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [complaint, setComplaint] = useState("");
   const webcamRef = useRef(null);
 
   const videoConstraints = {
@@ -92,7 +93,7 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
         newId = `PSN-${nextNum}`;
       }
 
-      // 🔹 Simpan ke tabel examinations
+      // 🔹 Simpan ke tabel examinations (termasuk complaint)
       const { data: inserted, error: insertError } = await supabase
         .from("examinations")
         .insert([
@@ -103,6 +104,7 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
             image_url: fileUrl,
             model_prediction: prediction.prediction,
             confidence_score: confidenceValue,
+            complaint: complaint.trim() || null,
           },
         ])
         .select()
@@ -112,6 +114,7 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
 
       onResult?.({ ...inserted, prediction });
       Swal.fire("Sukses", "Hasil prediksi berhasil disimpan", "success");
+      setComplaint("");
     } catch (err) {
       console.error(err);
       Swal.fire("Gagal", err.message, "error");
@@ -197,6 +200,20 @@ export default function ExaminationForm({ patient, doctor, onResult }) {
               />
             </div>
           )}
+        </div>
+
+        {/* Input Keluhan */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Keluhan Pasien
+          </label>
+          <textarea
+            placeholder="Tuliskan keluhan pada kunjungan ini..."
+            value={complaint}
+            onChange={(e) => setComplaint(e.target.value)}
+            rows="3"
+            className="w-full border border-gray-300 focus:border-pink-400 focus:ring focus:ring-pink-100 p-3 rounded-lg outline-none transition resize-none text-sm"
+          />
         </div>
 
         <button
